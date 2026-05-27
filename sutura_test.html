@@ -21,9 +21,14 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
         body { background-color: var(--bg-dark); color: var(--text-light); overflow-x: hidden; }
 
-        /* THE VIDEO ENGINE */
+        /* THE HARDWARE ACCELERATED CANVAS ENGINE */
         #video-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; background: #0a0a0a; }
-        #walkthrough-video { display: block; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.7); }
+        
+        /* The actual video is hidden! We only use it for data. */
+        #walkthrough-video { display: none; } 
+        
+        /* The canvas takes over, running purely on the GPU */
+        #walkthrough-canvas { display: block; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.7); }
 
         #progress-container { position: fixed; top: 0; left: 0; width: 100%; height: 3px; background: rgba(255, 255, 255, 0.05); z-index: 100; }
         #progress-bar { width: 0%; height: 100%; background: var(--accent-green); }
@@ -67,6 +72,7 @@
 
     <div id="video-container">
         <video id="walkthrough-video" src="walkthrough.mp4" muted playsinline preload="auto"></video>
+        <canvas id="walkthrough-canvas"></canvas>
     </div>
     
     <div id="progress-container"><div id="progress-bar"></div></div>
@@ -134,38 +140,87 @@
         gsap.registerPlugin(ScrollTrigger);
 
         const video = document.getElementById("walkthrough-video");
+        const canvas = document.getElementById("walkthrough-canvas");
+        const ctx = canvas.getContext("2d");
 
-        // Force video to pause so GSAP can scrub it
+        // Force canvas to match screen size precisely
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
         video.pause();
 
-        // Ensure video metadata is loaded before trying to scrub
-        video.onloadedmetadata = function() {
+        // Wait until the browser fully understands the video file size and length
+        video.addEventListener('loadedmetadata', function() {
             
+            // 1. THE GPU RENDER LOOP
+            // This runs 60 times a second, painting whatever frame the video is currently on to the canvas.
+            function render() {
+                if(video.videoWidth === 0) { requestAnimationFrame(render); return; }
+
+                const canvasRatio = canvas.width / canvas.height;
+                const videoRatio = video.videoWidth / video.videoHeight;
+                let drawWidth, drawHeight, drawX, drawY;
+
+                // Emulate standard 'object-fit: cover' mathematics
+                if (canvasRatio > videoRatio) {
+                    drawWidth = canvas.width;
+                    drawHeight = canvas.width / videoRatio;
+                    drawX = 0;
+                    drawY = (canvas.height - drawHeight) / 2;
+                } else {
+                    drawWidth = canvas.height * videoRatio;
+                    drawHeight = canvas.height;
+                    drawX = (canvas.width - drawWidth) / 2;
+                    drawY = 0;
+                }
+
+                ctx.drawImage(video, drawX, drawY, drawWidth, drawHeight);
+                requestAnimationFrame(render);
+            }
+            // Start the infinite loop
+            requestAnimationFrame(render);
+
+            // 2. THE GSAP INERTIA TWEEN
+            // Instead of tying the video to your mouse directly, we tell GSAP to smoothly animate it backwards.
+            video.currentTime = video.duration; // Start at the end
+
+            const videoTween = gsap.to(video, {
+                currentTime: 0, // Animate to the beginning
+                ease: "none",
+                paused: true 
+            });
+
             const wrapper = document.querySelector(".scroll-wrapper");
 
+            // Text Scroll Tween
             const scrollTween = gsap.to(wrapper, {
                 xPercent: -75, 
-                ease: "none",
-                scrollTrigger: {
-                    trigger: "#viewport",
-                    pin: true, 
-                    scrub: 1.5, 
-                    start: "top top",
-                    end: "+=5000", 
-                    onUpdate: (self) => {
-                        // SCROLL SCRUBBING THE VIDEO
-                        // Multiply the progress by the video length to find the exact frame!
-                        // We use (1 - self.progress) to reverse the video playback
-                        video.currentTime = (1 - self.progress) * video.duration;
+                ease: "none"
+            });
 
-                        // UI Updates
-                        document.getElementById("progress-bar").style.width = `${self.progress * 100}%`;
-                        const dots = document.querySelectorAll(".nav-dot");
-                        const activeIndex = Math.min(Math.floor(self.progress * 4), 3);
-                        dots.forEach((dot, idx) => {
-                            dot.classList.toggle("active", idx === activeIndex);
-                        });
-                    }
+            // 3. THE MASTER CONTROLLER
+            ScrollTrigger.create({
+                trigger: "#viewport",
+                pin: true, 
+                start: "top top",
+                end: "+=5000", 
+                // SCRUB 1.5 IS THE MAGIC INERTIA SAUCE! 
+                // It adds a 1.5 second smoothing delay so the browser has time to decode the video cleanly.
+                scrub: 1.5, 
+                animation: gsap.timeline()
+                    .add(scrollTween, 0)
+                    .add(videoTween, 0), // Lock the video tween to the text tween
+                onUpdate: (self) => {
+                    document.getElementById("progress-bar").style.width = `${self.progress * 100}%`;
+                    const dots = document.querySelectorAll(".nav-dot");
+                    const activeIndex = Math.min(Math.floor(self.progress * 4), 3);
+                    dots.forEach((dot, idx) => {
+                        dot.classList.toggle("active", idx === activeIndex);
+                    });
                 }
             });
 
@@ -185,7 +240,7 @@
             gsap.timeline({ scrollTrigger: { trigger: "#sec-technical", containerAnimation: scrollTween, start: "left 80%", end: "center center", scrub: true } })
             .fromTo("#panel-technical", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 });
 
-        };
+        });
     </script>
 </body>
 </html>

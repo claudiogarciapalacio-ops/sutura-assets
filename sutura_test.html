@@ -21,8 +21,8 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
         body { background-color: var(--bg-dark); color: var(--text-light); overflow-x: hidden; }
 
+        /* THE IMAGE SEQUENCE ENGINE */
         #video-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; background: #0a0a0a; }
-        #walkthrough-video { display: none; } 
         #walkthrough-canvas { display: block; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.7); }
 
         #progress-container { position: fixed; top: 0; left: 0; width: 100%; height: 3px; background: rgba(255, 255, 255, 0.05); z-index: 100; }
@@ -66,7 +66,6 @@
 <body>
 
     <div id="video-container">
-        <video id="walkthrough-video" src="walkthrough.mp4" muted playsinline preload="auto"></video>
         <canvas id="walkthrough-canvas"></canvas>
     </div>
     
@@ -134,97 +133,113 @@
     <script>
         gsap.registerPlugin(ScrollTrigger);
 
-        const video = document.getElementById("walkthrough-video");
         const canvas = document.getElementById("walkthrough-canvas");
         const ctx = canvas.getContext("2d");
+
+        // Set up the array to hold our 300 frames
+        const frameCount = 300;
+        
+        // This dynamically calls Video1_000.jpg, Video1_001.jpg, etc.
+        const currentFrame = index => `Video1_${String(index).padStart(3, '0')}.jpg`;
+
+        const images = [];
+        const seq = { frame: 0 };
 
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
+            render();
         }
         window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
-        function initAnimation() {
-            let lastTime = -1;
+        // 1. PRELOADER: Load all 300 JPEGs instantly
+        for (let i = 0; i < frameCount; i++) {
+            const img = new Image();
+            img.src = currentFrame(i);
+            images.push(img);
+        }
 
-            // THE GPU SAVER LOOP
-            function render() {
-                if(video.videoWidth === 0) { requestAnimationFrame(render); return; }
+        // 2. THE RENDER LOOP: Instantly paints the active frame
+        function render() {
+            const img = images[seq.frame];
+            if (!img || !img.complete) return;
 
-                // Only redraw the canvas if the video frame actually changed!
-                if (video.currentTime !== lastTime) {
-                    const canvasRatio = canvas.width / canvas.height;
-                    const videoRatio = video.videoWidth / video.videoHeight;
-                    let drawWidth, drawHeight, drawX, drawY;
+            const canvasRatio = canvas.width / canvas.height;
+            const imgRatio = img.width / img.height;
+            let drawWidth, drawHeight, drawX, drawY;
 
-                    if (canvasRatio > videoRatio) {
-                        drawWidth = canvas.width;
-                        drawHeight = canvas.width / videoRatio;
-                        drawX = 0;
-                        drawY = (canvas.height - drawHeight) / 2;
-                    } else {
-                        drawWidth = canvas.height * videoRatio;
-                        drawHeight = canvas.height;
-                        drawX = (canvas.width - drawWidth) / 2;
-                        drawY = 0;
-                    }
-
-                    ctx.drawImage(video, drawX, drawY, drawWidth, drawHeight);
-                    lastTime = video.currentTime;
-                }
-                
-                requestAnimationFrame(render);
+            if (canvasRatio > imgRatio) {
+                drawWidth = canvas.width;
+                drawHeight = canvas.width / imgRatio;
+                drawX = 0;
+                drawY = (canvas.height - drawHeight) / 2;
+            } else {
+                drawWidth = canvas.height * imgRatio;
+                drawHeight = canvas.height;
+                drawX = (canvas.width - drawWidth) / 2;
+                drawY = 0;
             }
-            requestAnimationFrame(render);
 
-            video.pause();
-            
-            const wrapper = document.querySelector(".scroll-wrapper");
-            const scrollTween = gsap.to(wrapper, { xPercent: -75, ease: "none" });
+            // Draw image instead of video!
+            ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+        }
 
-            ScrollTrigger.create({
+        // Paint the first frame as soon as it loads
+        images[0].onload = render;
+
+        // 3. GSAP SCROLL TRIGGERS
+        const wrapper = document.querySelector(".scroll-wrapper");
+        const scrollTween = gsap.to(wrapper, { xPercent: -75, ease: "none" });
+
+        // A. The UI Trigger
+        ScrollTrigger.create({
+            trigger: "#viewport",
+            pin: true,
+            start: "top top",
+            end: "+=5000",
+            animation: scrollTween,
+            onUpdate: (self) => {
+                document.getElementById("progress-bar").style.width = `${self.progress * 100}%`;
+                const activeIndex = Math.min(Math.floor(self.progress * 4), 3);
+                document.querySelectorAll(".nav-dot").forEach((dot, idx) => {
+                    dot.classList.toggle("active", idx === activeIndex);
+                });
+            }
+        });
+
+        // B. The Magic Flipbook Sequence Trigger
+        // This scrubs rapidly through index 0 to 299 as you scroll
+        gsap.to(seq, {
+            frame: frameCount - 1,
+            snap: "frame",
+            ease: "none",
+            scrollTrigger: {
                 trigger: "#viewport",
-                pin: true, 
                 start: "top top",
-                end: "+=5000", 
-                scrub: 2.5, // INCREASED INERTIA FOR BUTTERY SMOOTHNESS
-                animation: scrollTween, 
-                onUpdate: (self) => {
-                    if (video.duration) {
-                        video.currentTime = (1 - self.progress) * video.duration;
-                    }
+                end: "+=5000",
+                scrub: 0.5, // 0.5 creates an ultra-responsive, sharp feeling
+            },
+            onUpdate: render // Fire the paint function on every single frame change
+        });
 
-                    document.getElementById("progress-bar").style.width = `${self.progress * 100}%`;
-                    const dots = document.querySelectorAll(".nav-dot");
-                    const activeIndex = Math.min(Math.floor(self.progress * 4), 3);
-                    dots.forEach((dot, idx) => {
-                        dot.classList.toggle("active", idx === activeIndex);
-                    });
-                }
-            });
+        // Panel Animations
+        gsap.to("#hero-panel", { opacity: 0, y: -50, scrollTrigger: { trigger: "#sec-hero", containerAnimation: scrollTween, start: "center center", end: "right center", scrub: true } });
 
-            gsap.to("#hero-panel", { opacity: 0, y: -50, scrollTrigger: { trigger: "#sec-hero", containerAnimation: scrollTween, start: "center center", end: "right center", scrub: true } });
+        gsap.timeline({ scrollTrigger: { trigger: "#sec-manifesto", containerAnimation: scrollTween, start: "left 80%", end: "right 20%", scrub: true } })
+        .fromTo("#panel-manifesto", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 })
+        .to("#panel-manifesto", { opacity: 1, duration: 1 })
+        .to("#panel-manifesto", { opacity: 0, y: -50, duration: 1 });
 
-            gsap.timeline({ scrollTrigger: { trigger: "#sec-manifesto", containerAnimation: scrollTween, start: "left 80%", end: "right 20%", scrub: true } })
-            .fromTo("#panel-manifesto", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 })
-            .to("#panel-manifesto", { opacity: 1, duration: 1 })
-            .to("#panel-manifesto", { opacity: 0, y: -50, duration: 1 });
+        gsap.timeline({ scrollTrigger: { trigger: "#sec-strata", containerAnimation: scrollTween, start: "left 80%", end: "right 20%", scrub: true } })
+        .fromTo("#panel-strata", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 })
+        .to("#panel-strata", { opacity: 1, duration: 1 })
+        .to("#panel-strata", { opacity: 0, y: -50, duration: 1 });
 
-            gsap.timeline({ scrollTrigger: { trigger: "#sec-strata", containerAnimation: scrollTween, start: "left 80%", end: "right 20%", scrub: true } })
-            .fromTo("#panel-strata", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 })
-            .to("#panel-strata", { opacity: 1, duration: 1 })
-            .to("#panel-strata", { opacity: 0, y: -50, duration: 1 });
+        gsap.timeline({ scrollTrigger: { trigger: "#sec-technical", containerAnimation: scrollTween, start: "left 80%", end: "center center", scrub: true } })
+        .fromTo("#panel-technical", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 });
 
-            gsap.timeline({ scrollTrigger: { trigger: "#sec-technical", containerAnimation: scrollTween, start: "left 80%", end: "center center", scrub: true } })
-            .fromTo("#panel-technical", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 });
-        }
-
-        if (video.readyState >= 1) {
-            initAnimation();
-        } else {
-            video.addEventListener('loadedmetadata', initAnimation);
-        }
     </script>
 </body>
 </html>

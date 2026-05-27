@@ -21,12 +21,11 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
         body { background-color: var(--bg-dark); color: var(--text-light); overflow-x: hidden; }
 
-        /* The Local Image Engine Background */
-        #video-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; background: radial-gradient(circle at center, #161616 0%, #0a0a0a 100%); }
-        #walkthrough-video { display: block; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.7); }
+        /* The High-Performance Canvas Engine */
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; background: radial-gradient(circle at center, #161616 0%, #0a0a0a 100%); }
+        canvas { display: block; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.7); }
 
         #sync-indicator { position: fixed; bottom: 30px; right: 30px; z-index: 10; font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.4); background: rgba(0,0,0,0.6); padding: 8px 14px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.05); }
-
         #progress-container { position: fixed; top: 0; left: 0; width: 100%; height: 3px; background: rgba(255, 255, 255, 0.05); z-index: 100; }
         #progress-bar { width: 0%; height: 100%; background: var(--accent-green); }
 
@@ -67,8 +66,8 @@
 </head>
 <body>
 
-    <div id="video-container">
-        <img id="walkthrough-video" src="Video1_299.png" alt="Walkthrough Background">
+    <div id="canvas-container">
+        <canvas id="walkthrough-canvas"></canvas>
     </div>
     
     <div id="sync-indicator">Synchronizing Renders...</div>
@@ -136,7 +135,8 @@
     <script>
         gsap.registerPlugin(ScrollTrigger);
 
-        const videoElement = document.getElementById("walkthrough-video");
+        const canvas = document.getElementById("walkthrough-canvas");
+        const context = canvas.getContext("2d");
         const frameCount = 300;
         
         const currentFrame = index => {
@@ -144,10 +144,10 @@
             return `Video1_${paddedNum}.png`; 
         };
 
-        const airSequence = { frame: frameCount }; 
+        const airSequence = { frame: frameCount }; // Starting backwards at 300
         const images = new Array(frameCount);
 
-        // --- LOCAL DOMINO LOADER ---
+        // --- DOMINO LOADER ---
         function preloadImages() {
             let loadedCount = 0;
             const indicator = document.getElementById("sync-indicator");
@@ -164,10 +164,11 @@
                 
                 img.onload = () => {
                     loadedCount++;
-                    indicator.innerText = `Loading Local Renders · ${Math.round((loadedCount / frameCount) * 100)}%`;
+                    indicator.innerText = `Caching Renders · ${Math.round((loadedCount / frameCount) * 100)}%`;
                     
                     images[i - 1] = img; 
                     
+                    // Draw frame 300 to the canvas instantly
                     if (loadedCount === 1) renderFrame(); 
                     
                     loadFrame(i - 1); 
@@ -183,20 +184,44 @@
             loadFrame(frameCount); 
         }
 
+        // --- HIGH PERFORMANCE CANVAS RENDERER ---
         function renderFrame() {
             const safeIndex = Math.round(airSequence.frame) - 1;
             const activeImg = images[safeIndex];
             
-            // Added an extra safety check here to ensure the source is valid before swapping
-            if (activeImg && activeImg.complete && activeImg.src) {
-                videoElement.src = activeImg.src;
+            if (!activeImg || !activeImg.complete || activeImg.naturalWidth === 0) return;
+
+            const canvasRatio = canvas.width / canvas.height;
+            const imgRatio = activeImg.width / activeImg.height;
+            let drawWidth, drawHeight, drawX, drawY;
+
+            if (canvasRatio > imgRatio) {
+                drawWidth = canvas.width;
+                drawHeight = canvas.width / imgRatio;
+                drawX = 0;
+                drawY = (canvas.height - drawHeight) / 2;
+            } else {
+                drawWidth = canvas.height * imgRatio;
+                drawHeight = canvas.height;
+                drawX = (canvas.width - drawWidth) / 2;
+                drawY = 0;
             }
+
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(activeImg, drawX, drawY, drawWidth, drawHeight);
         }
 
-        window.addEventListener("resize", () => renderFrame());
+        window.addEventListener("resize", () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            renderFrame();
+        });
+        
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
         preloadImages();
 
-        // --- GSAP ANIMATIONS ---
+        // --- GSAP BULLETPROOF ANIMATIONS ---
         const wrapper = document.querySelector(".scroll-wrapper");
 
         const scrollTween = gsap.to(wrapper, {
@@ -209,6 +234,10 @@
                 start: "top top",
                 end: "+=5000", 
                 onUpdate: (self) => {
+                    // THE BULLETPROOF FIX: The video frame is now mathematically locked to the text scroll progress
+                    airSequence.frame = frameCount - (self.progress * (frameCount - 1));
+                    renderFrame();
+
                     document.getElementById("progress-bar").style.width = `${self.progress * 100}%`;
                     const dots = document.querySelectorAll(".nav-dot");
                     const activeIndex = Math.min(Math.floor(self.progress * 4), 3);
@@ -219,18 +248,7 @@
             }
         });
 
-        gsap.to(airSequence, {
-            frame: 1, 
-            ease: "none",
-            scrollTrigger: {
-                trigger: "#viewport",
-                start: "top top",
-                end: "+=5000",
-                scrub: 1.5
-            },
-            onUpdate: renderFrame
-        });
-
+        // Panel Fade Animations
         gsap.to("#hero-panel", { opacity: 0, y: -50, scrollTrigger: { trigger: "#sec-hero", containerAnimation: scrollTween, start: "center center", end: "right center", scrub: true } });
 
         gsap.timeline({ scrollTrigger: { trigger: "#sec-manifesto", containerAnimation: scrollTween, start: "left 80%", end: "right 20%", scrub: true } })

@@ -151,13 +151,9 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        video.pause();
-
-        // Wait until the browser fully understands the video file size and length
-        video.addEventListener('loadedmetadata', function() {
-            
+        // THE MASTER ANIMATION FUNCTION
+        function initAnimation() {
             // 1. THE GPU RENDER LOOP
-            // This runs 60 times a second, painting whatever frame the video is currently on to the canvas.
             function render() {
                 if(video.videoWidth === 0) { requestAnimationFrame(render); return; }
 
@@ -165,7 +161,6 @@
                 const videoRatio = video.videoWidth / video.videoHeight;
                 let drawWidth, drawHeight, drawX, drawY;
 
-                // Emulate standard 'object-fit: cover' mathematics
                 if (canvasRatio > videoRatio) {
                     drawWidth = canvas.width;
                     drawHeight = canvas.width / videoRatio;
@@ -181,40 +176,32 @@
                 ctx.drawImage(video, drawX, drawY, drawWidth, drawHeight);
                 requestAnimationFrame(render);
             }
-            // Start the infinite loop
             requestAnimationFrame(render);
 
-            // 2. THE GSAP INERTIA TWEEN
-            // Instead of tying the video to your mouse directly, we tell GSAP to smoothly animate it backwards.
-            video.currentTime = video.duration; // Start at the end
-
-            const videoTween = gsap.to(video, {
-                currentTime: 0, // Animate to the beginning
-                ease: "none",
-                paused: true 
-            });
-
+            // 2. SETUP THE SCROLL
+            video.pause();
+            
             const wrapper = document.querySelector(".scroll-wrapper");
-
-            // Text Scroll Tween
             const scrollTween = gsap.to(wrapper, {
                 xPercent: -75, 
                 ease: "none"
             });
 
-            // 3. THE MASTER CONTROLLER
+            // 3. THE GSAP CONTROLLER WITH INERTIA (SCRUB: 1.5)
             ScrollTrigger.create({
                 trigger: "#viewport",
                 pin: true, 
                 start: "top top",
                 end: "+=5000", 
-                // SCRUB 1.5 IS THE MAGIC INERTIA SAUCE! 
-                // It adds a 1.5 second smoothing delay so the browser has time to decode the video cleanly.
                 scrub: 1.5, 
-                animation: gsap.timeline()
-                    .add(scrollTween, 0)
-                    .add(videoTween, 0), // Lock the video tween to the text tween
+                animation: scrollTween, 
                 onUpdate: (self) => {
+                    // Scrub the video based on scroll progress
+                    if (video.duration) {
+                        video.currentTime = (1 - self.progress) * video.duration;
+                    }
+
+                    // Update UI elements
                     document.getElementById("progress-bar").style.width = `${self.progress * 100}%`;
                     const dots = document.querySelectorAll(".nav-dot");
                     const activeIndex = Math.min(Math.floor(self.progress * 4), 3);
@@ -224,7 +211,7 @@
                 }
             });
 
-            // Panel Animations
+            // Panel Fade Animations
             gsap.to("#hero-panel", { opacity: 0, y: -50, scrollTrigger: { trigger: "#sec-hero", containerAnimation: scrollTween, start: "center center", end: "right center", scrub: true } });
 
             gsap.timeline({ scrollTrigger: { trigger: "#sec-manifesto", containerAnimation: scrollTween, start: "left 80%", end: "right 20%", scrub: true } })
@@ -239,8 +226,14 @@
 
             gsap.timeline({ scrollTrigger: { trigger: "#sec-technical", containerAnimation: scrollTween, start: "left 80%", end: "center center", scrub: true } })
             .fromTo("#panel-technical", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 });
+        }
 
-        });
+        // THE BULLETPROOF CHECK: Run immediately if loaded, otherwise wait for metadata
+        if (video.readyState >= 1) {
+            initAnimation();
+        } else {
+            video.addEventListener('loadedmetadata', initAnimation);
+        }
     </script>
 </body>
 </html>

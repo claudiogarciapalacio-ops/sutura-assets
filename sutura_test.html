@@ -21,11 +21,10 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
         body { background-color: var(--bg-dark); color: var(--text-light); overflow-x: hidden; }
 
-        /* The High-Performance Canvas Engine */
-        #canvas-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; background: radial-gradient(circle at center, #161616 0%, #0a0a0a 100%); }
-        canvas { display: block; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.7); }
+        /* THE VIDEO ENGINE */
+        #video-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; background: #0a0a0a; }
+        #walkthrough-video { display: block; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.7); }
 
-        #sync-indicator { position: fixed; bottom: 30px; right: 30px; z-index: 10; font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.4); background: rgba(0,0,0,0.6); padding: 8px 14px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.05); }
         #progress-container { position: fixed; top: 0; left: 0; width: 100%; height: 3px; background: rgba(255, 255, 255, 0.05); z-index: 100; }
         #progress-bar { width: 0%; height: 100%; background: var(--accent-green); }
 
@@ -66,11 +65,10 @@
 </head>
 <body>
 
-    <div id="canvas-container">
-        <canvas id="walkthrough-canvas"></canvas>
+    <div id="video-container">
+        <video id="walkthrough-video" src="walkthrough.mp4" muted playsinline preload="auto"></video>
     </div>
     
-    <div id="sync-indicator">Synchronizing Renders...</div>
     <div id="progress-container"><div id="progress-bar"></div></div>
 
     <div id="side-nav">
@@ -135,135 +133,59 @@
     <script>
         gsap.registerPlugin(ScrollTrigger);
 
-        const canvas = document.getElementById("walkthrough-canvas");
-        const context = canvas.getContext("2d");
-        const frameCount = 300;
-        
-        const currentFrame = index => {
-            let paddedNum = (index - 1).toString().padStart(3, '0');
-            return `Video1_${paddedNum}.png`; 
-        };
+        const video = document.getElementById("walkthrough-video");
 
-        const airSequence = { frame: frameCount }; // Starting backwards at 300
-        const images = new Array(frameCount);
+        // Force video to pause so GSAP can scrub it
+        video.pause();
 
-        // --- DOMINO LOADER ---
-        function preloadImages() {
-            let loadedCount = 0;
-            const indicator = document.getElementById("sync-indicator");
-
-            function loadFrame(i) {
-                if (i < 1) {
-                    indicator.innerText = "Timeline Synchronized";
-                    gsap.to("#sync-indicator", { opacity: 0, delay: 1 });
-                    return; 
-                }
-
-                const img = new Image();
-                img.src = currentFrame(i);
-                
-                img.onload = () => {
-                    loadedCount++;
-                    indicator.innerText = `Caching Renders · ${Math.round((loadedCount / frameCount) * 100)}%`;
-                    
-                    images[i - 1] = img; 
-                    
-                    // Draw frame 300 to the canvas instantly
-                    if (loadedCount === 1) renderFrame(); 
-                    
-                    loadFrame(i - 1); 
-                };
-                
-                img.onerror = () => {
-                    console.log(`Skipped missing frame: ${i}`);
-                    loadedCount++;
-                    loadFrame(i - 1); 
-                };
-            }
-
-            loadFrame(frameCount); 
-        }
-
-        // --- HIGH PERFORMANCE CANVAS RENDERER ---
-        function renderFrame() {
-            const safeIndex = Math.round(airSequence.frame) - 1;
-            const activeImg = images[safeIndex];
+        // Ensure video metadata is loaded before trying to scrub
+        video.onloadedmetadata = function() {
             
-            if (!activeImg || !activeImg.complete || activeImg.naturalWidth === 0) return;
+            const wrapper = document.querySelector(".scroll-wrapper");
 
-            const canvasRatio = canvas.width / canvas.height;
-            const imgRatio = activeImg.width / activeImg.height;
-            let drawWidth, drawHeight, drawX, drawY;
+            const scrollTween = gsap.to(wrapper, {
+                xPercent: -75, 
+                ease: "none",
+                scrollTrigger: {
+                    trigger: "#viewport",
+                    pin: true, 
+                    scrub: 1.5, 
+                    start: "top top",
+                    end: "+=5000", 
+                    onUpdate: (self) => {
+                        // SCROLL SCRUBBING THE VIDEO
+                        // Multiply the progress by the video length to find the exact frame!
+                        // We use (1 - self.progress) to reverse the video playback
+                        video.currentTime = (1 - self.progress) * video.duration;
 
-            if (canvasRatio > imgRatio) {
-                drawWidth = canvas.width;
-                drawHeight = canvas.width / imgRatio;
-                drawX = 0;
-                drawY = (canvas.height - drawHeight) / 2;
-            } else {
-                drawWidth = canvas.height * imgRatio;
-                drawHeight = canvas.height;
-                drawX = (canvas.width - drawWidth) / 2;
-                drawY = 0;
-            }
-
-            context.clearRect(0, 0, canvas.width, canvas.height);
-            context.drawImage(activeImg, drawX, drawY, drawWidth, drawHeight);
-        }
-
-        window.addEventListener("resize", () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            renderFrame();
-        });
-        
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        preloadImages();
-
-        // --- GSAP BULLETPROOF ANIMATIONS ---
-        const wrapper = document.querySelector(".scroll-wrapper");
-
-        const scrollTween = gsap.to(wrapper, {
-            xPercent: -75, 
-            ease: "none",
-            scrollTrigger: {
-                trigger: "#viewport",
-                pin: true, 
-                scrub: 1.5, 
-                start: "top top",
-                end: "+=5000", 
-                onUpdate: (self) => {
-                    // THE BULLETPROOF FIX: The video frame is now mathematically locked to the text scroll progress
-                    airSequence.frame = frameCount - (self.progress * (frameCount - 1));
-                    renderFrame();
-
-                    document.getElementById("progress-bar").style.width = `${self.progress * 100}%`;
-                    const dots = document.querySelectorAll(".nav-dot");
-                    const activeIndex = Math.min(Math.floor(self.progress * 4), 3);
-                    dots.forEach((dot, idx) => {
-                        dot.classList.toggle("active", idx === activeIndex);
-                    });
+                        // UI Updates
+                        document.getElementById("progress-bar").style.width = `${self.progress * 100}%`;
+                        const dots = document.querySelectorAll(".nav-dot");
+                        const activeIndex = Math.min(Math.floor(self.progress * 4), 3);
+                        dots.forEach((dot, idx) => {
+                            dot.classList.toggle("active", idx === activeIndex);
+                        });
+                    }
                 }
-            }
-        });
+            });
 
-        // Panel Fade Animations
-        gsap.to("#hero-panel", { opacity: 0, y: -50, scrollTrigger: { trigger: "#sec-hero", containerAnimation: scrollTween, start: "center center", end: "right center", scrub: true } });
+            // Panel Animations
+            gsap.to("#hero-panel", { opacity: 0, y: -50, scrollTrigger: { trigger: "#sec-hero", containerAnimation: scrollTween, start: "center center", end: "right center", scrub: true } });
 
-        gsap.timeline({ scrollTrigger: { trigger: "#sec-manifesto", containerAnimation: scrollTween, start: "left 80%", end: "right 20%", scrub: true } })
-        .fromTo("#panel-manifesto", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 })
-        .to("#panel-manifesto", { opacity: 1, duration: 1 })
-        .to("#panel-manifesto", { opacity: 0, y: -50, duration: 1 });
+            gsap.timeline({ scrollTrigger: { trigger: "#sec-manifesto", containerAnimation: scrollTween, start: "left 80%", end: "right 20%", scrub: true } })
+            .fromTo("#panel-manifesto", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 })
+            .to("#panel-manifesto", { opacity: 1, duration: 1 })
+            .to("#panel-manifesto", { opacity: 0, y: -50, duration: 1 });
 
-        gsap.timeline({ scrollTrigger: { trigger: "#sec-strata", containerAnimation: scrollTween, start: "left 80%", end: "right 20%", scrub: true } })
-        .fromTo("#panel-strata", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 })
-        .to("#panel-strata", { opacity: 1, duration: 1 })
-        .to("#panel-strata", { opacity: 0, y: -50, duration: 1 });
+            gsap.timeline({ scrollTrigger: { trigger: "#sec-strata", containerAnimation: scrollTween, start: "left 80%", end: "right 20%", scrub: true } })
+            .fromTo("#panel-strata", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 })
+            .to("#panel-strata", { opacity: 1, duration: 1 })
+            .to("#panel-strata", { opacity: 0, y: -50, duration: 1 });
 
-        gsap.timeline({ scrollTrigger: { trigger: "#sec-technical", containerAnimation: scrollTween, start: "left 80%", end: "center center", scrub: true } })
-        .fromTo("#panel-technical", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 });
+            gsap.timeline({ scrollTrigger: { trigger: "#sec-technical", containerAnimation: scrollTween, start: "left 80%", end: "center center", scrub: true } })
+            .fromTo("#panel-technical", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 });
 
+        };
     </script>
 </body>
 </html>

@@ -67,14 +67,20 @@
         .doc-btn { background: transparent; border: 1px solid var(--accent-green); color: var(--text-light); padding: 12px 24px; font-size: 0.75rem; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: all 0.3s ease; border-radius: 4px; backdrop-filter: blur(5px); }
         .doc-btn:hover { background: var(--accent-green); color: var(--bg-dark); }
 
-        /* FULLSCREEN MODAL OVERLAY */
-        #doc-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(10, 10, 10, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.4s ease; }
+        /* FULLSCREEN MODAL OVERLAY (CINEMATIC FADE UPGRADE) */
+        #doc-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(10, 10, 10, 0.7); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.5s ease; }
         #doc-modal.active { opacity: 1; pointer-events: auto; }
-        .modal-close { position: absolute; top: 30px; right: 40px; color: var(--accent-green); font-size: 1rem; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; border: none; background: transparent; }
+        .modal-close { position: absolute; top: 30px; right: 40px; color: var(--accent-green); font-size: 1rem; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; border: none; background: transparent; z-index: 1001; }
         .modal-close:hover { color: #fff; }
-        .modal-content { max-width: 90vw; max-height: 90vh; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid var(--glass-border); display: none; }
-        .modal-content.active { display: block; }
-        .modal-content img { width: 100%; height: 100%; object-fit: contain; }
+
+        @keyframes cinematicFadeIn {
+            0% { opacity: 0; transform: scale(0.95); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .modal-content { max-width: 90vw; max-height: 90vh; display: none; }
+        .modal-content.active { display: block; animation: cinematicFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .modal-content img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 20px 50px rgba(0,0,0,0.5)); }
     </style>
 </head>
 <body>
@@ -88,181 +94,4 @@
     <div id="side-nav">
         <div class="nav-dot active" onclick="window.scrollTo({top: 0, behavior: 'smooth'})"></div>
         <div class="nav-dot" onclick="window.scrollTo({top: 1666, behavior: 'smooth'})"></div>
-        <div class="nav-dot" onclick="window.scrollTo({top: 3333, behavior: 'smooth'})"></div>
-        <div class="nav-dot" onclick="window.scrollTo({top: 5000, behavior: 'smooth'})"></div>
-    </div>
-
-    <div id="viewport">
-        <div class="scroll-wrapper">
-            <section class="scroll-section" id="sec-hero">
-                <div class="hero-panel" id="hero-panel">
-                    <p class="hero-eyebrow">Urban Regeneration · Guadalajara</p>
-                    <h1 class="hero-title">SUTURA <span class="hollow">Río Atemajac</span></h1>
-                    <div class="hero-chips">
-                        <span class="chip"><strong>GDL</strong> · MX · 2026</span>
-                        <span class="chip"><strong>7.4 KM</strong> Corridor</span>
-                        <span class="chip"><strong>38 HA</strong> Restored</span>
-                        <span class="chip"><strong>3</strong> Strata Layers</span>
-                    </div>
-                </div>
-            </section>
-
-            <section class="scroll-section" id="sec-manifesto">
-                <div class="hud-panel" id="panel-manifesto">
-                    <p class="panel-eyebrow">01 . The Manifesto</p>
-                    <h2 class="panel-title">Stitching the <em>broken seam</em> of the river.</h2>
-                    <div class="panel-rule"></div>
-                    <p class="panel-body">The Río Atemajac has long been a <strong>forgotten infrastructure</strong>. SUTURA proposes not a restoration in the nostalgic sense, but a <strong>radical re-stitching</strong>: a living seam that connects fragmented barrios and reintroduces native ecological succession at every scale.</p>
-                    <p class="panel-quote">"A river is not a boundary—it is the city's most generous room."</p>
-                    <div class="tag-row"><span class="tag">Urban Connectivity</span><span class="tag">River Rewilding</span></div>
-                </div>
-            </section>
-
-            <section class="scroll-section" id="sec-strata">
-                <div class="hud-panel" id="panel-strata">
-                    <p class="panel-eyebrow">02 . Interaction Strata</p>
-                    <h2 class="panel-title">Tectonic & <em>Vegetal Layering</em></h2>
-                    <div class="panel-rule"></div>
-                    <p class="panel-body">Moving past the entryway portal, the hardscape steps down dynamically. Heavy solid paving yields to permeable gravel and structural board-formed concrete walls, creating defined vantage vectors.</p>
-                    <div class="tag-row"><span class="tag">Permeable Paving</span><span class="tag">Board-Formed Concrete</span></div>
-                </div>
-            </section>
-
-            <section class="scroll-section" id="sec-technical">
-                <div class="hud-panel" id="panel-technical">
-                    <p class="panel-eyebrow">03 . Technical Summary</p>
-                    <h2 class="panel-title">Performance Matrix</h2>
-                    <div class="panel-rule"></div>
-                    <table class="tech-table">
-                        <tr> <td class="tech-label">Project Identity</td><td class="tech-value">SUTURA</td> </tr>
-                        <tr> <td class="tech-label">Location Base</td><td class="tech-value">Guadalajara, MX</td> </tr>
-                        <tr> <td class="tech-label">Hardscape Matrix</td><td class="tech-value">Board-Formed Concrete</td> </tr>
-                        <tr> <td class="tech-label">Softscape Matrix</td><td class="tech-value">Native Riparian Grasses</td> </tr>
-                    </table>
-
-                    <div class="action-row">
-                        <button class="doc-btn" onclick="openModal('plan')">Master Plan</button>
-                        <button class="doc-btn" onclick="openModal('section')">Sections</button>
-                    </div>
-                </div>
-            </section>
-        </div>
-    </div>
-
-    <div id="doc-modal">
-        <button class="modal-close" onclick="closeModal()">Close ✕</button>
-        
-        <div class="modal-content" id="modal-plan">
-            <img src="master_plan.jpg" alt="Sutura Master Plan"> 
-        </div>
-        
-        <div class="modal-content" id="modal-section">
-            <img src="sections.jpg" alt="Sutura Sections">
-        </div>
-    </div>
-
-    <script>
-        // MODAL CONTROLLERS
-        function openModal(type) {
-            document.getElementById('doc-modal').classList.add('active');
-            document.querySelectorAll('.modal-content').forEach(el => el.classList.remove('active'));
-            document.getElementById(`modal-${type}`).classList.add('active');
-        }
-
-        function closeModal() {
-            document.getElementById('doc-modal').classList.remove('active');
-        }
-
-        // GSAP ENGINE
-        gsap.registerPlugin(ScrollTrigger);
-
-        const canvas = document.getElementById("walkthrough-canvas");
-        const ctx = canvas.getContext("2d");
-
-        const frameCount = 300;
-        const currentFrame = index => `Video1_${String(index).padStart(3, '0')}.jpg`;
-
-        const images = [];
-        let currentFrameIndex = 0;
-
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            render(currentFrameIndex);
-        }
-        window.addEventListener('resize', resizeCanvas);
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
-        for (let i = 0; i < frameCount; i++) {
-            const img = new Image();
-            img.src = currentFrame(i);
-            if (i === 0) {
-                img.onload = () => render(0);
-            }
-            images.push(img);
-        }
-
-        function render(frameIndex) {
-            const img = images[frameIndex];
-            if (!img || !img.complete) return; 
-
-            const canvasRatio = canvas.width / canvas.height;
-            const imgRatio = img.width / img.height;
-            let drawWidth, drawHeight, drawX, drawY;
-
-            if (canvasRatio > imgRatio) {
-                drawWidth = canvas.width;
-                drawHeight = canvas.width / imgRatio;
-                drawX = 0;
-                drawY = (canvas.height - drawHeight) / 2;
-            } else {
-                drawWidth = canvas.height * imgRatio;
-                drawHeight = canvas.height;
-                drawX = (canvas.width - drawWidth) / 2;
-                drawY = 0;
-            }
-
-            ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
-        }
-
-        const wrapper = document.querySelector(".scroll-wrapper");
-        const scrollTween = gsap.to(wrapper, { xPercent: -75, ease: "none" });
-
-        ScrollTrigger.create({
-            trigger: "#viewport",
-            pin: true,
-            start: "top top",
-            end: "+=5000",
-            scrub: 1, 
-            animation: scrollTween, 
-            onUpdate: (self) => {
-                currentFrameIndex = Math.round(self.progress * (frameCount - 1));
-                render(currentFrameIndex);
-
-                document.getElementById("progress-bar").style.width = `${self.progress * 100}%`;
-                const activeIndex = Math.min(Math.floor(self.progress * 4), 3);
-                document.querySelectorAll(".nav-dot").forEach((dot, idx) => {
-                    dot.classList.toggle("active", idx === activeIndex);
-                });
-            }
-        });
-
-        gsap.to("#hero-panel", { opacity: 0, y: -50, scrollTrigger: { trigger: "#sec-hero", containerAnimation: scrollTween, start: "center center", end: "right center", scrub: true } });
-
-        gsap.timeline({ scrollTrigger: { trigger: "#sec-manifesto", containerAnimation: scrollTween, start: "left 80%", end: "right 20%", scrub: true } })
-        .fromTo("#panel-manifesto", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 })
-        .to("#panel-manifesto", { opacity: 1, duration: 1 })
-        .to("#panel-manifesto", { opacity: 0, y: -50, duration: 1 });
-
-        gsap.timeline({ scrollTrigger: { trigger: "#sec-strata", containerAnimation: scrollTween, start: "left 80%", end: "right 20%", scrub: true } })
-        .fromTo("#panel-strata", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 })
-        .to("#panel-strata", { opacity: 1, duration: 1 })
-        .to("#panel-strata", { opacity: 0, y: -50, duration: 1 });
-
-        gsap.timeline({ scrollTrigger: { trigger: "#sec-technical", containerAnimation: scrollTween, start: "left 80%", end: "center center", scrub: true } })
-        .fromTo("#panel-technical", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 });
-
-    </script>
-</body>
-</html>
+        <div class="nav-dot" onclick="window.scrollTo({top: 3333

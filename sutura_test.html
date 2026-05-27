@@ -200,13 +200,18 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
+        // NEW: The Traffic Controller Preloader
+        // Adds a 15ms delay between each image request to prevent GitHub from crashing
         for (let i = 0; i < frameCount; i++) {
             const img = new Image();
-            img.src = currentFrame(i);
-            if (i === 0) {
-                img.onload = () => render(0);
-            }
-            images.push(img);
+            images.push(img); // Push empty object to keep array order perfect
+
+            setTimeout(() => {
+                img.src = currentFrame(i);
+                if (i === 0) {
+                    img.onload = () => render(0);
+                }
+            }, i * 15); // Staggers the downloads beautifully
         }
 
         function render(frameIndex) {

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SUTURA — Río Atemajac</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-dark: #0a0a0a;
+            --text-light: #f5f5f7;
+            --text-dim: #a1a1a6;
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-bg: rgba(10, 10, 10, 0.7);
+            --accent-green: #a8b0a0;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+        body { background-color: var(--bg-dark); color: var(--text-light); overflow-x: hidden; }
+
+        /* The Local Image Engine Background */
+        #video-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; background: radial-gradient(circle at center, #161616 0%, #0a0a0a 100%); }
+        #walkthrough-video { display: block; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.7); }
+
+        #sync-indicator { position: fixed; bottom: 30px; right: 30px; z-index: 10; font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.4); background: rgba(0,0,0,0.6); padding: 8px 14px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.05); }
+
+        #progress-container { position: fixed; top: 0; left: 0; width: 100%; height: 3px; background: rgba(255, 255, 255, 0.05); z-index: 100; }
+        #progress-bar { width: 0%; height: 100%; background: var(--accent-green); }
+
+        #side-nav { position: fixed; right: 30px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 15px; z-index: 99; }
+        .nav-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.2); border: 1px solid transparent; cursor: pointer; transition: all 0.3s ease; pointer-events: auto; }
+        .nav-dot:hover, .nav-dot.active { background: var(--accent-green); transform: scale(1.3); box-shadow: 0 0 8px var(--accent-green); }
+
+        #viewport { position: relative; width: 100vw; height: 100vh; overflow: hidden; z-index: 2; }
+        .scroll-wrapper { display: flex; width: 400vw; height: 100vh; }
+        .scroll-section { width: 100vw; height: 100vh; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 0 8%; pointer-events: none; }
+        .hud-panel { background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--glass-border); padding: 40px; max-width: 540px; border-radius: 4px; pointer-events: auto; opacity: 0; }
+
+        .hero-panel { text-align: center; max-width: none; width: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 1; }
+        .hero-eyebrow { font-size: 0.7rem; letter-spacing: 0.4em; text-transform: uppercase; color: var(--accent-green); margin-bottom: 20px; }
+        .hero-title { font-family: "Didot", serif; font-size: clamp(3.5rem, 8vw, 7.5rem); font-weight: 400; letter-spacing: 0.35em; text-transform: uppercase; margin-bottom: 20px; color: #fff; text-shadow: 0 4px 20px rgba(0,0,0,0.6); }
+        .hero-title .hollow { -webkit-text-stroke: 1px rgba(255, 255, 255, 0.6); color: transparent; }
+        .hero-chips { display: flex; gap: 15px; margin-top: 15px; margin-bottom: 30px; flex-wrap: wrap; justify-content: center; }
+        .chip { font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); padding: 6px 14px; border-radius: 20px; color: var(--text-dim); }
+        .chip strong { color: #fff; }
+
+        .panel-eyebrow { font-size: 0.65rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--accent-green); margin-bottom: 12px; font-weight: 600; }
+        .panel-title { font-size: 1.8rem; font-weight: 400; letter-spacing: 0.05em; margin-bottom: 15px; color: #fff; }
+        .panel-title em { font-family: "Didot", serif; font-style: italic; }
+        .panel-rule { width: 60px; height: 1px; background: rgba(255, 255, 255, 0.15); margin-bottom: 20px; }
+        .panel-body { font-size: 0.95rem; line-height: 1.7; color: var(--text-dim); margin-bottom: 20px; }
+        .panel-body strong { color: #fff; font-weight: 500; }
+        .panel-quote { font-size: 0.9rem; font-style: italic; border-left: 2px solid var(--accent-green); padding-left: 15px; color: #e1e1e6; margin-bottom: 25px; line-height: 1.5; }
+        .tag-row { display: flex; flex-wrap: wrap; gap: 8px; }
+        .tag { font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; background: rgba(168, 176, 160, 0.1); border: 1px solid rgba(168, 176, 160, 0.2); padding: 4px 10px; border-radius: 2px; color: var(--accent-green); }
+        
+        .tech-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .tech-table tr { border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+        .tech-table tr:last-child { border-bottom: none; }
+        .tech-table td { padding: 12px 0; font-size: 0.85rem; }
+        .tech-label { color: var(--text-dim); }
+        .tech-value { color: #fff; text-align: right; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+    <div id="video-container">
+        <img id="walkthrough-video" src="Video1_299.png" alt="Walkthrough Background">
+    </div>
+    
+    <div id="sync-indicator">Synchronizing Renders...</div>
+    <div id="progress-container"><div id="progress-bar"></div></div>
+
+    <div id="side-nav">
+        <div class="nav-dot active" onclick="window.scrollTo({top: 0, behavior: 'smooth'})"></div>
+        <div class="nav-dot" onclick="window.scrollTo({top: 1666, behavior: 'smooth'})"></div>
+        <div class="nav-dot" onclick="window.scrollTo({top: 3333, behavior: 'smooth'})"></div>
+        <div class="nav-dot" onclick="window.scrollTo({top: 5000, behavior: 'smooth'})"></div>
+    </div>
+
+    <div id="viewport">
+        <div class="scroll-wrapper">
+            <section class="scroll-section" id="sec-hero">
+                <div class="hero-panel" id="hero-panel">
+                    <p class="hero-eyebrow">Urban Regeneration · Guadalajara</p>
+                    <h1 class="hero-title">SUTURA <span class="hollow">Río Atemajac</span></h1>
+                    <div class="hero-chips">
+                        <span class="chip"><strong>GDL</strong> · MX · 2026</span>
+                        <span class="chip"><strong>7.4 KM</strong> Corridor</span>
+                        <span class="chip"><strong>38 HA</strong> Restored</span>
+                        <span class="chip"><strong>3</strong> Strata Layers</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="scroll-section" id="sec-manifesto">
+                <div class="hud-panel" id="panel-manifesto">
+                    <p class="panel-eyebrow">01 . The Manifesto</p>
+                    <h2 class="panel-title">Stitching the <em>broken seam</em> of the river.</h2>
+                    <div class="panel-rule"></div>
+                    <p class="panel-body">The Río Atemajac has long been a <strong>forgotten infrastructure</strong>. SUTURA proposes not a restoration in the nostalgic sense, but a <strong>radical re-stitching</strong>: a living seam that connects fragmented barrios and reintroduces native ecological succession at every scale.</p>
+                    <p class="panel-quote">"A river is not a boundary—it is the city's most generous room."</p>
+                    <div class="tag-row"><span class="tag">Urban Connectivity</span><span class="tag">River Rewilding</span></div>
+                </div>
+            </section>
+
+            <section class="scroll-section" id="sec-strata">
+                <div class="hud-panel" id="panel-strata">
+                    <p class="panel-eyebrow">02 . Interaction Strata</p>
+                    <h2 class="panel-title">Tectonic & <em>Vegetal Layering</em></h2>
+                    <div class="panel-rule"></div>
+                    <p class="panel-body">Moving past the entryway portal, the hardscape steps down dynamically. Heavy solid paving yields to permeable gravel and structural board-formed concrete walls, creating defined vantage vectors.</p>
+                    <div class="tag-row"><span class="tag">Permeable Paving</span><span class="tag">Board-Formed Concrete</span></div>
+                </div>
+            </section>
+
+            <section class="scroll-section" id="sec-technical">
+                <div class="hud-panel" id="panel-technical">
+                    <p class="panel-eyebrow">03 . Technical Summary</p>
+                    <h2 class="panel-title">Performance Matrix</h2>
+                    <div class="panel-rule"></div>
+                    <table class="tech-table">
+                        <tr> <td class="tech-label">Project Identity</td><td class="tech-value">SUTURA</td> </tr>
+                        <tr> <td class="tech-label">Location Base</td><td class="tech-value">Guadalajara, MX</td> </tr>
+                        <tr> <td class="tech-label">Hardscape Matrix</td><td class="tech-value">Board-Formed Concrete</td> </tr>
+                        <tr> <td class="tech-label">Softscape Matrix</td><td class="tech-value">Native Riparian Grasses</td> </tr>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        gsap.registerPlugin(ScrollTrigger);
+
+        const videoElement = document.getElementById("walkthrough-video");
+        const frameCount = 300;
+        
+        const currentFrame = index => {
+            let paddedNum = (index - 1).toString().padStart(3, '0');
+            return `Video1_${paddedNum}.png`; 
+        };
+
+        const airSequence = { frame: frameCount }; 
+        const images = new Array(frameCount);
+
+        // --- LOCAL DOMINO LOADER ---
+        function preloadImages() {
+            let loadedCount = 0;
+            const indicator = document.getElementById("sync-indicator");
+
+            function loadFrame(i) {
+                if (i < 1) {
+                    indicator.innerText = "Timeline Synchronized";
+                    gsap.to("#sync-indicator", { opacity: 0, delay: 1 });
+                    return; 
+                }
+
+                const img = new Image();
+                img.src = currentFrame(i);
+                
+                img.onload = () => {
+                    loadedCount++;
+                    indicator.innerText = `Loading Local Renders · ${Math.round((loadedCount / frameCount) * 100)}%`;
+                    
+                    images[i - 1] = img; 
+                    
+                    if (loadedCount === 1) renderFrame(); 
+                    
+                    loadFrame(i - 1); 
+                };
+                
+                img.onerror = () => {
+                    console.log(`Skipped missing frame: ${i}`);
+                    loadedCount++;
+                    loadFrame(i - 1); 
+                };
+            }
+
+            loadFrame(frameCount); 
+        }
+
+        function renderFrame() {
+            const safeIndex = Math.round(airSequence.frame) - 1;
+            const activeImg = images[safeIndex];
+            
+            // Added an extra safety check here to ensure the source is valid before swapping
+            if (activeImg && activeImg.complete && activeImg.src) {
+                videoElement.src = activeImg.src;
+            }
+        }
+
+        window.addEventListener("resize", () => renderFrame());
+        preloadImages();
+
+        // --- GSAP ANIMATIONS ---
+        const wrapper = document.querySelector(".scroll-wrapper");
+
+        const scrollTween = gsap.to(wrapper, {
+            xPercent: -75, 
+            ease: "none",
+            scrollTrigger: {
+                trigger: "#viewport",
+                pin: true, 
+                scrub: 1.5, 
+                start: "top top",
+                end: "+=5000", 
+                onUpdate: (self) => {
+                    document.getElementById("progress-bar").style.width = `${self.progress * 100}%`;
+                    const dots = document.querySelectorAll(".nav-dot");
+                    const activeIndex = Math.min(Math.floor(self.progress * 4), 3);
+                    dots.forEach((dot, idx) => {
+                        dot.classList.toggle("active", idx === activeIndex);
+                    });
+                }
+            }
+        });
+
+        gsap.to(airSequence, {
+            frame: 1, 
+            ease: "none",
+            scrollTrigger: {
+                trigger: "#viewport",
+                start: "top top",
+                end: "+=5000",
+                scrub: 1.5
+            },
+            onUpdate: renderFrame
+        });
+
+        gsap.to("#hero-panel", { opacity: 0, y: -50, scrollTrigger: { trigger: "#sec-hero", containerAnimation: scrollTween, start: "center center", end: "right center", scrub: true } });
+
+        gsap.timeline({ scrollTrigger: { trigger: "#sec-manifesto", containerAnimation: scrollTween, start: "left 80%", end: "right 20%", scrub: true } })
+        .fromTo("#panel-manifesto", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 })
+        .to("#panel-manifesto", { opacity: 1, duration: 1 })
+        .to("#panel-manifesto", { opacity: 0, y: -50, duration: 1 });
+
+        gsap.timeline({ scrollTrigger: { trigger: "#sec-strata", containerAnimation: scrollTween, start: "left 80%", end: "right 20%", scrub: true } })
+        .fromTo("#panel-strata", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 })
+        .to("#panel-strata", { opacity: 1, duration: 1 })
+        .to("#panel-strata", { opacity: 0, y: -50, duration: 1 });
+
+        gsap.timeline({ scrollTrigger: { trigger: "#sec-technical", containerAnimation: scrollTween, start: "left 80%", end: "center center", scrub: true } })
+        .fromTo("#panel-technical", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 1 });
+
+    </script>
+</body>
+</html>

@@ -61,6 +61,20 @@
         .tech-table td { padding: 12px 0; font-size: 0.85rem; }
         .tech-label { color: var(--text-dim); }
         .tech-value { color: #fff; text-align: right; font-family: monospace; }
+
+        /* DOCUMENT BUTTONS */
+        .action-row { display: flex; gap: 15px; margin-top: 30px; }
+        .doc-btn { background: transparent; border: 1px solid var(--accent-green); color: var(--text-light); padding: 12px 24px; font-size: 0.75rem; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: all 0.3s ease; border-radius: 4px; backdrop-filter: blur(5px); }
+        .doc-btn:hover { background: var(--accent-green); color: var(--bg-dark); }
+
+        /* FULLSCREEN MODAL OVERLAY */
+        #doc-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(10, 10, 10, 0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.4s ease; }
+        #doc-modal.active { opacity: 1; pointer-events: auto; }
+        .modal-close { position: absolute; top: 30px; right: 40px; color: var(--accent-green); font-size: 1rem; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; border: none; background: transparent; }
+        .modal-close:hover { color: #fff; }
+        .modal-content { max-width: 90vw; max-height: 90vh; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid var(--glass-border); display: none; }
+        .modal-content.active { display: block; }
+        .modal-content img { width: 100%; height: 100%; object-fit: contain; }
     </style>
 </head>
 <body>
@@ -125,12 +139,41 @@
                         <tr> <td class="tech-label">Hardscape Matrix</td><td class="tech-value">Board-Formed Concrete</td> </tr>
                         <tr> <td class="tech-label">Softscape Matrix</td><td class="tech-value">Native Riparian Grasses</td> </tr>
                     </table>
+
+                    <div class="action-row">
+                        <button class="doc-btn" onclick="openModal('plan')">Master Plan</button>
+                        <button class="doc-btn" onclick="openModal('section')">Sections</button>
+                    </div>
                 </div>
             </section>
         </div>
     </div>
 
+    <div id="doc-modal">
+        <button class="modal-close" onclick="closeModal()">Close ✕</button>
+        
+        <div class="modal-content" id="modal-plan">
+            <img src="master_plan.jpg" alt="Sutura Master Plan"> 
+        </div>
+        
+        <div class="modal-content" id="modal-section">
+            <img src="sections.jpg" alt="Sutura Sections">
+        </div>
+    </div>
+
     <script>
+        // MODAL CONTROLLERS
+        function openModal(type) {
+            document.getElementById('doc-modal').classList.add('active');
+            document.querySelectorAll('.modal-content').forEach(el => el.classList.remove('active'));
+            document.getElementById(`modal-${type}`).classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('doc-modal').classList.remove('active');
+        }
+
+        // GSAP ENGINE
         gsap.registerPlugin(ScrollTrigger);
 
         const canvas = document.getElementById("walkthrough-canvas");
@@ -142,7 +185,6 @@
         const images = [];
         let currentFrameIndex = 0;
 
-        // Force canvas size
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -152,23 +194,17 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        // PRELOADER: Load all images silently in the background
         for (let i = 0; i < frameCount; i++) {
             const img = new Image();
             img.src = currentFrame(i);
-            
-            // As soon as the very first frame is ready, paint it to the screen!
             if (i === 0) {
                 img.onload = () => render(0);
             }
             images.push(img);
         }
 
-        // THE PAINTER: Takes a specific number and draws that image
         function render(frameIndex) {
             const img = images[frameIndex];
-            
-            // If the image hasn't finished downloading yet, just skip it and don't break
             if (!img || !img.complete) return; 
 
             const canvasRatio = canvas.width / canvas.height;
@@ -190,26 +226,20 @@
             ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
         }
 
-        // SETUP THE TEXT SCROLL
         const wrapper = document.querySelector(".scroll-wrapper");
         const scrollTween = gsap.to(wrapper, { xPercent: -75, ease: "none" });
 
-        // THE MASTER CONTROLLER: One trigger rules them all!
         ScrollTrigger.create({
             trigger: "#viewport",
             pin: true,
             start: "top top",
             end: "+=5000",
-            scrub: 1, // Adds that 1-second smooth inertia
-            animation: scrollTween, // Connects the text scroll
+            scrub: 1, 
+            animation: scrollTween, 
             onUpdate: (self) => {
-                // MATH: Scroll Progress (0 to 1) multiplied by 299 total frames
                 currentFrameIndex = Math.round(self.progress * (frameCount - 1));
-                
-                // Instantly paint that exact frame
                 render(currentFrameIndex);
 
-                // Update UI elements
                 document.getElementById("progress-bar").style.width = `${self.progress * 100}%`;
                 const activeIndex = Math.min(Math.floor(self.progress * 4), 3);
                 document.querySelectorAll(".nav-dot").forEach((dot, idx) => {
@@ -218,7 +248,6 @@
             }
         });
 
-        // Panel Animations
         gsap.to("#hero-panel", { opacity: 0, y: -50, scrollTrigger: { trigger: "#sec-hero", containerAnimation: scrollTween, start: "center center", end: "right center", scrub: true } });
 
         gsap.timeline({ scrollTrigger: { trigger: "#sec-manifesto", containerAnimation: scrollTween, start: "left 80%", end: "right 20%", scrub: true } })
